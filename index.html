@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <title>TCP</title>
+</head>
+<body>
+    <div id="values"></div>
+    <script type="text/babel">
+        class Algorithm extends React.Component {
+            constructor(props){
+                super(props);
+                this.state={
+                    cwnd: 1,
+                    ssthresh: 64,
+                    ack: 0,
+                    sent: [1],
+                    lost: [],
+                    lost_pkt: 0
+                }
+            }
+            render() {
+                return (
+                    <div>
+                        <h1>Algorithm</h1>
+                        <h2>Congestion Window: {this.state.cwnd}</h2>
+                        <h2>Slow Start Threshold: {this.state.ssthresh}</h2>
+                        <h3>Change Slow Start Threshold:</h3>
+                        <input onChange={this.handleChangeThresh} value={this.state.ssthresh} />
+                        <h2>Send packets</h2>
+                        {this.state.sent}
+                        <h2>Lost packets</h2>
+                        {this.state.lost}
+                        <p>Packet to lose:</p>
+                        <input onChange={this.handleChange} value={this.state.lost_pkt} />
+                        <button onClick={this.handleLost}>Lost</button>
+                        <h2>Simulate</h2>
+                        <button onClick={this.handleClick}>Send</button>
+                        <h2>Acknowledgement: ACK{this.state.ack}</h2>
+                        <h2>Next Simulation</h2>
+                        <button onClick={this.handleNext}>Next</button>
+                    </div>
+                );
+            }
+
+            handleChangeThresh = (event) => {
+                this.setState({
+                    ssthresh: event.target.value
+                });
+            }
+
+            handleChange = (event) => {
+                this.setState({
+                    lost_pkt: event.target.value
+                });
+            }
+
+            handleLost = () => {
+                this.setState({
+                    lost: [...this.state.lost, this.state.lost_pkt]
+                });
+            }
+
+            handleClick = () => {
+                
+            }
+            handleNext = (oldstate => ({
+                if(oldstate.cwnd < oldstate.ssthresh){
+                    this.setState({
+                        cwnd: oldstate.cwnd + 1,
+                        ssthresh: oldstate.ssthresh,
+                        
+                        lost: [],
+                        lost_pkt: 0
+                    });
+                }
+                else {
+                    this.setState({
+                        cwnd: 1,
+                        ssthresh: oldstate.ssthresh/2,
+                        
+                        lost: [],
+                        lost_pkt: 0
+                    });
+                }
+            }));
+        }
+        ReactDOM.render(<Algorithm />, document.querySelector("#values"));
+    </script>
+</body>
+</html>
