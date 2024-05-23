@@ -66,28 +66,34 @@
             }
 
             handleClick = () => {
-                
+                if(this.state.lost.length > 0){
+                    this.setState({
+                        ack: this.state.lost[0]
+                    });
+                }
+                else {
+                    this.setState({
+                        ack: this.state.sent[this.state.sent.length - 1]
+                    });
+                }
             }
-            handleNext = (oldstate => ({
-                if(oldstate.cwnd < oldstate.ssthresh){
+
+            handleNext = ((state) => {
+                if(state.cwnd < state.ssthresh){
                     this.setState({
                         cwnd: oldstate.cwnd + 1,
                         ssthresh: oldstate.ssthresh,
                         
-                        lost: [],
-                        lost_pkt: 0
                     });
                 }
                 else {
                     this.setState({
                         cwnd: 1,
-                        ssthresh: oldstate.ssthresh/2,
+                        ssthresh: state.ssthresh/2,
                         
-                        lost: [],
-                        lost_pkt: 0
                     });
                 }
-            }));
+            });
         }
         ReactDOM.render(<Algorithm />, document.querySelector("#values"));
     </script>
