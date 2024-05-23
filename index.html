@@ -79,12 +79,21 @@
             }
 
             handleNext = () => {
-                if(this.state.cwnd < this.state.ssthresh){
+                if(this.state.cwnd < this.state.ssthresh && this.state.lost.length == 0){
                     this.setState((state) => {
                         return {
                         cwnd: state.cwnd + 1,
                         ssthresh: state.ssthresh,
                         sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => this.state.ack + i)
+                        };
+                    });
+                }
+                else if(this.state.lost.length != 0)
+                {
+                    this.setState((state) => {
+                        return {
+                        sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => state.sent[state.sent.length-1]+1 + i),
+                        lost: []
                         };
                     });
                 }
