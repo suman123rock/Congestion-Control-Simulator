@@ -18,7 +18,7 @@
                     cwnd: 1,
                     ssthresh: 64,
                     ack: 0,
-                    sent: [1],
+                    sent: [0],
                     lost: [],
                     lost_pkt: 0
                 }
@@ -73,7 +73,7 @@
                 }
                 else {
                     this.setState({
-                        ack: this.state.sent[this.state.sent.length - 1]
+                        ack: this.state.sent[this.state.sent.length - 1]+1
                     });
                 }
             }
