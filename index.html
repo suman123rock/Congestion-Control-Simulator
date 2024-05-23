@@ -49,13 +49,13 @@
 
             handleChangeThresh = (event) => {
                 this.setState({
-                    ssthresh: event.target.value
+                    ssthresh: parseInt(event.target.value)
                 });
             }
 
             handleChange = (event) => {
                 this.setState({
-                    lost_pkt: event.target.value
+                    lost_pkt: parseInt(event.target.value)
                 });
             }
 
@@ -78,22 +78,26 @@
                 }
             }
 
-            handleNext = ((state) => {
-                if(state.cwnd < state.ssthresh){
-                    this.setState({
-                        cwnd: oldstate.cwnd + 1,
-                        ssthresh: oldstate.ssthresh,
-                        
+            handleNext = () => {
+                if(this.state.cwnd < this.state.ssthresh){
+                    this.setState((state) => {
+                        return {
+                        cwnd: state.cwnd + 1,
+                        ssthresh: state.ssthresh,
+                        sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => this.state.ack + i)
+                        };
                     });
                 }
                 else {
-                    this.setState({
+                    this.setState((state) => {
+                        return {
                         cwnd: 1,
                         ssthresh: state.ssthresh/2,
-                        
+                        sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => this.state.ack + i)
+                        };
                     });
                 }
-            });
+            };
         }
         ReactDOM.render(<Algorithm />, document.querySelector("#values"));
     </script>
