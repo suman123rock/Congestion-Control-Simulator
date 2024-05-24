@@ -44,7 +44,12 @@ function App() {
       }
       else if(lost.length != 0)
       {
-        setSent(Array.from({ length: cwnd + 1 }, (v, i) => sent[sent.length - 1]+1 + i));
+        let last = sent[sent.length - 1];
+        setCwnd(cwnd+1);
+        console.log(lost.length, cwnd, sent.length, last, lost[0])
+        setSent(lost);
+        if(sent.length <= cwnd)
+          setSent(sent.concat(Array.from({ length: sent.length - cwnd + 1 }, (v, i) => last+1 + i)));
         setLost([]);
         // sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => state.sent[state.sent.length-1]+1 + i),
         // lost: []
