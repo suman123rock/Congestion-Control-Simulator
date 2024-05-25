@@ -53,5 +53,5 @@ jobs:
         uses: fcodelabs/react-deploy-github-pages-action@v1.0.0
         with:
           # Build directory to deploy
-          build_dir: ./tcp_congestion
+          build_dir: ./
           
