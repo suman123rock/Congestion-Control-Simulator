@@ -1,10 +1,28 @@
 .App {
   text-align: center;
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-family: Arial, sans-serif;
+  color: #333;
+  /* Additional styles */
+  border: 2px solid #61dafb;
+  margin: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
 }
 
 .App-logo {
   height: 40vmin;
   pointer-events: none;
+  /* Additional styles */
+  border-radius: 50%;
+  background-color: #61dafb;
+  animation: App-logo-spin infinite 20s linear;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -14,14 +32,16 @@
 }
 
 .App-header {
-  background-color: #282c34;
-  min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: calc(10px + 2vmin);
-  color: white;
+  background-color: #61dafb;
+  color: #fff;
+  padding: 20px;
+  margin-bottom: 20px;
+  /* Additional styles */
+  border-radius: 5px;
 }
 
 .App-link {
@@ -35,4 +55,86 @@
   to {
     transform: rotate(360deg);
   }
+}
+.initialvalues {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 20px;
+}
+.initialvalues > div {
+  flex: 1;
+  margin-right: 10px;
+  /* Additional styles */
+  border: 1px solid #61dafb;
+  border-radius: 5px;
+  padding: 5px;
+}
+.pkthead {
+  flex: 1;
+  /* Additional styles */
+  border: 1px solid #61dafb;
+  border-radius: 5px;
+  padding: 5px;
+}
+.send {
+  display: flex;
+  flex-direction: row;
+  text-align: left;
+  align-items: center;
+  padding-bottom: 10vh;
+}
+.send > input {
+  flex: 1;
+  margin-right: 10px;
+  /* Additional styles */
+  border: 1px solid #61dafb;
+  border-radius: 5px;
+  padding: 5px;
+  font-family: 'Times New Roman', Times, serif;
+}
+.initialvalues {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 20px;
+}
+
+.initialvalues > div {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.pkthead {
+  flex: 1;
+}
+
+.send {
+  display: flex;
+  flex-direction: row;
+  text-align: left;
+  align-items: center;
+  padding-bottom: 10vh;
+}
+
+.send > div {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.simulate {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+  font-size: 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  background-color: #61dafb;
+  color: #fff;
+  margin-left: 25vw;
+}
+
+.simulate:hover {
+  background-color: #f1f1f1;
 }

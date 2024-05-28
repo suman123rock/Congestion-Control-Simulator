@@ -66,23 +66,42 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-      <h2>Congestion Window: {cwnd}</h2>
-        <h2>Slow Start Threshold: {ssthresh}</h2>
-        <h3>Change Slow Start Threshold:</h3>
+      Simulate Congestion Control Algorithms
+      </header>
+      <div className="App-body">
+      <div className="initialvalues">
+        <div className='pkthead'>
+        <h2>Congestion Window</h2>
+        { cwnd }
+        </div>
+        <div className='pkthead'>
+        <h2>Slow Start Threshold</h2>
+        {ssthresh}
+        </div>
+        <div className='pkthead'>
+        <h3>Change Initial Slow Start Threshold</h3>
         <input onChange={handleChangeThresh} value={ssthresh} />
-        <h2>Send packets</h2>
-        {sent}
-        <h2>Lost packets</h2>
-        {lost}
-        <p>Packet to lose:</p>
+        </div>
+        </div>
+        <div className='send'>
+        <div>
+      <h4>The packets to be transferred in this window have the following sequence numbers</h4>
+      <h5># {sent}</h5>
+      </div>
+      <div>
+      <h4>The packets to be simulated as lost in this window have the following sequence numbers</h4>
+      <h5># {lost}</h5>
+      <p></p>
         <input onChange={handleChange} value={lost_pkt} />
         <button onClick={handleLost}>Lost</button>
-        <h2>Simulate</h2>
-        <button onClick={handleClick}>Send</button>
-        <h2>Acknowledgement: ACK{ack}</h2>
-        <h2>Next Simulation</h2>
-        <button onClick={handleNext}>Next</button>
-      </header>
+      </div>
+      </div>
+        <button onClick={handleClick} className="simulate">Simulate the packet transfer for current window</button>
+        <div className="ack">
+          <h2>Received Acknowledgement after transfer : ACK{ack}</h2>
+        </div>
+        <button onClick={handleNext} className="simulate">Shift the window for next simulation round.</button>
+    </div>
     </div>
   );
 }
