@@ -33,7 +33,7 @@ To get started with the project locally:
 
 1. **Fork and Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/tcp-congestion-control-simulator.git
+   git clone https://github.com/Nandika-A/Congestion-Control-Simulator.git
    ```
 
 2. **Install Dependencies**:
