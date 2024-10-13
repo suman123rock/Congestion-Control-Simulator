@@ -78,12 +78,46 @@ function App() {
       setNodes(nodes.map(node =>
         node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
       ));
+      updatePacketLoss(updatedLost.length, sourceNode.sent.length);
       setError('');
     } else {
       setError('Invalid packet number. Please check the packet exists and is not already marked as lost.');
     }
   };
 
+  const updatePacketLoss = (lostPackets, totalPackets) => {
+    const lossRate = (lostPackets / totalPackets) * 100 || 0;
+    setPacketLoss(prevPacketLoss => [
+      ...prevPacketLoss,
+      { x: simulationTime, y: lossRate }
+    ]);
+  };
+
+  const updateNetworkMetrics = () => {
+    const currentNode = nodes[selectedNodeId];
+    const packetsSent = currentNode.sent.length;
+    const packetsLost = currentNode.lost.length;
+    const successfulPackets = packetsSent - packetsLost;
+    const instantThroughput = successfulPackets / (simulationTime || 1);
+
+    setThroughput(prevThroughput => [
+      ...prevThroughput,
+      { x: simulationTime, y: instantThroughput }
+    ]);
+
+    updatePacketLoss(packetsLost, packetsSent);
+
+    const simulatedLatency = Math.random() * 150 + 50;
+    setLatency(prevLatency => [
+      ...prevLatency,
+      { x: simulationTime, y: simulatedLatency }
+    ]);
+
+    setCongestionWindow(prevCongestionWindow => [
+      ...prevCongestionWindow,
+      { x: simulationTime, y: currentNode.cwnd }
+    ]);
+  };
   const isConnected = (from, to) => {
     return connections.some(conn => (conn[0] === from && conn[1] === to) || (conn[1] === from && conn[0] === to));
   };
@@ -110,36 +144,6 @@ function App() {
 
     updateNetworkMetrics();
     setError('');
-  };
-
-  const updateNetworkMetrics = () => {
-    const currentNode = nodes[selectedNodeId];
-    const packetsSent = currentNode.sent.length;
-    const packetsLost = currentNode.lost.length;
-    const successfulPackets = packetsSent - packetsLost;
-    const instantThroughput = successfulPackets / (simulationTime || 1);
-
-    setThroughput(prevThroughput => [
-      ...prevThroughput,
-      { x: simulationTime, y: instantThroughput }
-    ]);
-
-    const lossRate = (packetsLost / packetsSent) * 100 || 0;
-    setPacketLoss(prevPacketLoss => [
-      ...prevPacketLoss,
-      { x: simulationTime, y: lossRate }
-    ]);
-
-    const simulatedLatency = Math.random() * 150 + 50;
-    setLatency(prevLatency => [
-      ...prevLatency,
-      { x: simulationTime, y: simulatedLatency }
-    ]);
-
-    setCongestionWindow(prevCongestionWindow => [
-      ...prevCongestionWindow,
-      { x: simulationTime, y: currentNode.cwnd }
-    ]);
   };
 
   const handleNext = () => {
