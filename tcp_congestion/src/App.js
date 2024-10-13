@@ -1,24 +1,40 @@
-import logo from './logo.svg';
+import React, { useState, useEffect } from 'react';
 import './App.css';
-import React, { useState } from 'react';
+import NetworkDashboard from './NetworkDashboard';
 
 function App() {
-  const [nodes, setNodes] = useState([]);//This state will contain all the info(cwnd, ssthresh, sent , lost, ack) for each node
-  //in the form of array of js objects
-  const [connections, setConnections] = useState([]); // Connection matrix (bi-directional)
-  const [numNodes, setNumNodes] = useState(0); // Number of nodes to be created
-  const [newConnection, setNewConnection] = useState({ from: 0, to: 0 }); // For creating connections
-  const [selectedNodeId, setSelectedNodeId] = useState(0); // Selected source node
-  const [selectedDestNodeId, setSelectedDestNodeId] = useState(1); // Selected destination node
-  const [lost_pkt, setLost_pkt] = useState(0); // Packet to be marked as lost
+  const [nodes, setNodes] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [numNodes, setNumNodes] = useState(0);
+  const [newConnection, setNewConnection] = useState({ from: 0, to: 0 });
+  const [selectedNodeId, setSelectedNodeId] = useState(0);
+  const [selectedDestNodeId, setSelectedDestNodeId] = useState(1);
+  const [lost_pkt, setLost_pkt] = useState(0);
+  const [throughput, setThroughput] = useState([]);
+  const [packetLoss, setPacketLoss] = useState([]);
+  const [latency, setLatency] = useState([]);
+  const [congestionWindow, setCongestionWindow] = useState([]);
+  const [simulationTime, setSimulationTime] = useState(0);
+  const [error, setError] = useState('');
 
-  // Handler for setting number of nodes
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSimulationTime(prevTime => prevTime + 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const handleNumNodesChange = (event) => {
-    setNumNodes(parseInt(event.target.value));
+    const value = parseInt(event.target.value);
+    setNumNodes(value > 0 ? value : 0);
   };
 
-  // Create nodes dynamically based on user input
   const createNodes = () => {
+    if (numNodes <= 0) {
+      setError('Please enter a valid number of nodes.');
+      return;
+    }
     const newNodes = Array.from({ length: numNodes }, (_, id) => ({
       id,
       cwnd: 1,
@@ -28,28 +44,29 @@ function App() {
       ack: 0,
     }));
     setNodes(newNodes);
+    setError('');
   };
 
-  // Handle changes in node connections
   const handleConnectionChange = (event) => {
     const { name, value } = event.target;
     setNewConnection({ ...newConnection, [name]: parseInt(value) });
   };
 
-  // Add a connection between two nodes
   const addConnection = () => {
     const { from, to } = newConnection;
     if (
       from >= 0 && from < nodes.length &&
       to >= 0 && to < nodes.length &&
       from !== to &&
-      !connections.some(conn => (conn[0] === from && conn[1] === to) || (conn[1] === from && conn[0] === to))
+      !isConnected(from, to)
     ) {
       setConnections([...connections, [from, to]]);
+      setError('');
+    } else {
+      setError('Invalid connection. Please check the node numbers and ensure the connection is unique.');
     }
   };
 
-  // Handle lost packet simulation
   const handleChangeLostPkt = (event) => {
     setLost_pkt(parseInt(event.target.value));
   };
@@ -61,17 +78,19 @@ function App() {
       setNodes(nodes.map(node =>
         node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
       ));
+      setError('');
+    } else {
+      setError('Invalid packet number. Please check the packet exists and is not already marked as lost.');
     }
   };
 
-  // Check if connection exists between selected source and destination
   const isConnected = (from, to) => {
     return connections.some(conn => (conn[0] === from && conn[1] === to) || (conn[1] === from && conn[0] === to));
   };
 
   const handleClick = () => {
     if (!isConnected(selectedNodeId, selectedDestNodeId)) {
-      alert(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
+      setError(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
       return;
     }
 
@@ -80,19 +99,52 @@ function App() {
       const currentNode = { ...updatedNodes[selectedNodeId] };
 
       if (currentNode.lost.length > 0) {
-        currentNode.ack = currentNode.lost[0]; // Acknowledge the lost packet
+        currentNode.ack = currentNode.lost[0];
       } else {
-        currentNode.ack = currentNode.sent[currentNode.sent.length - 1] + 1; // ACK for the last sent packet
+        currentNode.ack = currentNode.sent[currentNode.sent.length - 1] + 1;
       }
 
       updatedNodes[selectedNodeId] = currentNode;
       return updatedNodes;
     });
+
+    updateNetworkMetrics();
+    setError('');
+  };
+
+  const updateNetworkMetrics = () => {
+    const currentNode = nodes[selectedNodeId];
+    const packetsSent = currentNode.sent.length;
+    const packetsLost = currentNode.lost.length;
+    const successfulPackets = packetsSent - packetsLost;
+    const instantThroughput = successfulPackets / (simulationTime || 1);
+
+    setThroughput(prevThroughput => [
+      ...prevThroughput,
+      { x: simulationTime, y: instantThroughput }
+    ]);
+
+    const lossRate = (packetsLost / packetsSent) * 100 || 0;
+    setPacketLoss(prevPacketLoss => [
+      ...prevPacketLoss,
+      { x: simulationTime, y: lossRate }
+    ]);
+
+    const simulatedLatency = Math.random() * 150 + 50;
+    setLatency(prevLatency => [
+      ...prevLatency,
+      { x: simulationTime, y: simulatedLatency }
+    ]);
+
+    setCongestionWindow(prevCongestionWindow => [
+      ...prevCongestionWindow,
+      { x: simulationTime, y: currentNode.cwnd }
+    ]);
   };
 
   const handleNext = () => {
     if (!isConnected(selectedNodeId, selectedDestNodeId)) {
-      alert(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
+      setError(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
       return;
     }
 
@@ -101,20 +153,17 @@ function App() {
       const currentNode = { ...updatedNodes[selectedNodeId] };
 
       if (currentNode.cwnd < currentNode.ssthresh && currentNode.lost.length === 0) {
-        // Increase cwnd
         currentNode.cwnd += 1;
         currentNode.sent = Array.from({ length: currentNode.cwnd + 1 }, (v, i) => currentNode.ack + 1 + i);
       } else if (currentNode.lost.length !== 0) {
-        // Handle lost packets
         let last = currentNode.sent[currentNode.sent.length - 1];
         currentNode.cwnd += 1;
-        currentNode.sent = [...currentNode.lost]; // Reset sent to lost packets
+        currentNode.sent = [...currentNode.lost];
         if (currentNode.sent.length <= currentNode.cwnd) {
           currentNode.sent = currentNode.sent.concat(Array.from({ length: currentNode.cwnd - currentNode.sent.length + 1 }, (v, i) => last + 1 + i));
         }
         currentNode.lost = [];
       } else {
-        // If we reached the threshold
         currentNode.cwnd = 1;
         currentNode.ssthresh = Math.floor(currentNode.ssthresh / 2);
         currentNode.sent = Array.from({ length: currentNode.cwnd + 1 }, (v, i) => currentNode.ack + 1 + i);
@@ -123,6 +172,25 @@ function App() {
       updatedNodes[selectedNodeId] = currentNode;
       return updatedNodes;
     });
+
+    updateNetworkMetrics();
+    setError('');
+  };
+
+  const resetSimulation = () => {
+    setNodes([]);
+    setConnections([]);
+    setNumNodes(0);
+    setNewConnection({ from: 0, to: 0 });
+    setSelectedNodeId(0);
+    setSelectedDestNodeId(1);
+    setLost_pkt(0);
+    setThroughput([]);
+    setPacketLoss([]);
+    setLatency([]);
+    setCongestionWindow([]);
+    setSimulationTime(0);
+    setError('');
   };
 
   return (
@@ -131,55 +199,54 @@ function App() {
         Simulate Congestion Control Algorithms with Multiple Nodes
       </header>
       <div className="App-body">
-
-        {/* Input for number of nodes */}
-        <div className="initialvalues">
+        <div className="section">
           <h3>Enter the number of nodes:</h3>
           <input
             type="number"
             value={numNodes}
             onChange={handleNumNodesChange}
+            min="0"
           />
           <button onClick={createNodes}>Create Nodes</button>
         </div>
 
-        {/* Input for connections between nodes */}
-        <div>
-          <h3>Define connections between nodes:</h3>
-          <div>
-            <label>From Node:</label>
-            <input
-              type="number"
-              name="from"
-              value={newConnection.from}
-              onChange={handleConnectionChange}
-              min="0"
-              max={numNodes - 1}
-            />
-            <label>To Node:</label>
-            <input
-              type="number"
-              name="to"
-              value={newConnection.to}
-              onChange={handleConnectionChange}
-              min="0"
-              max={numNodes - 1}
-            />
-            <button onClick={addConnection}>Add Connection</button>
+        {nodes.length > 0 && (
+          <div className="section">
+            <h3>Define connections between nodes:</h3>
+            <div>
+              <label>From Node:</label>
+              <input
+                type="number"
+                name="from"
+                value={newConnection.from}
+                onChange={handleConnectionChange}
+                min="0"
+                max={numNodes - 1}
+              />
+              <label>To Node:</label>
+              <input
+                type="number"
+                name="to"
+                value={newConnection.to}
+                onChange={handleConnectionChange}
+                min="0"
+                max={numNodes - 1}
+              />
+              <button onClick={addConnection}>Add Connection</button>
+            </div>
+
+            <h4>Existing Connections:</h4>
+            <ul>
+              {connections.map((conn, index) => (
+                <li key={index}>Node {conn[0]} ↔ Node {conn[1]}</li>
+              ))}
+            </ul>
           </div>
+        )}
 
-          <h4>Existing Connections:</h4>
-          <ul>
-            {connections.map((conn, index) => (
-              <li key={index}>Node {conn[0]} ↔ Node {conn[1]}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Node selection for simulation */}
         {nodes.length > 0 && (
           <>
-            <div className="initialvalues">
+            <div className="section initialvalues">
               <div className='pkthead'>
                 <h2>Select Source Node</h2>
                 <select onChange={(e) => setSelectedNodeId(parseInt(e.target.value))} value={selectedNodeId}>
@@ -206,35 +273,61 @@ function App() {
               </div>
             </div>
 
-            <div className='send'>
+            <div className='section send'>
               <div>
                 <h4>Packets to be transferred from Node {selectedNodeId}</h4>
-                <h5># {nodes[selectedNodeId].sent.join(', ')}</h5>
+                <h5>#{nodes[selectedNodeId].sent.join(', ')}</h5>
               </div>
               <div>
                 <h4>Packets simulated as lost in this window</h4>
-                <h5># {nodes[selectedNodeId].lost.join(', ')}</h5>
-                <input onChange={handleChangeLostPkt} value={lost_pkt} />
+                <h5>#{nodes[selectedNodeId].lost.join(', ')}</h5>
+                <input
+                  type="number"
+                  onChange={handleChangeLostPkt}
+                  value={lost_pkt}
+                  min={0}
+                />
                 <button onClick={handleLost}>Mark as Lost</button>
               </div>
             </div>
 
-            {/* Simulation buttons */}
-            <button onClick={handleClick} className="simulate">
-              Simulate Packet Transfer for Current Window
-            </button>
-            <div className="ack">
+            <div className="button-group">
+              <button onClick={handleClick} className="simulate">
+                Simulate Packet Transfer for Current Window
+              </button>
+              <button onClick={handleNext} className="simulate">
+                Shift the Window for Next Simulation Round
+              </button>
+            </div>
+
+            <div className="section">
               <h2>Received Acknowledgement (ACK): {nodes[selectedNodeId].ack}</h2>
             </div>
-            <button onClick={handleNext} className="simulate">
-              Shift the Window for Next Simulation Round
-            </button>
+
+            <NetworkDashboard
+              throughput={throughput}
+              packetLoss={packetLoss}
+              latency={latency}
+              congestionWindow={congestionWindow}
+            />
+
+            <div className="button-group">
+              <button onClick={resetSimulation} className="reset">
+                Reset Simulation
+              </button>
+            </div>
+          
           </>
         )}
-
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 export default App;
