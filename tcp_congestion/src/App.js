@@ -24,7 +24,7 @@ function App() {
 
     return () => clearInterval(timer);
   }, []);
-
+  // function to handle change in number of nodes
   const handleNumNodesChange = (event) => {
     const value = parseInt(event.target.value);
     setNumNodes(value > 0 ? value : 0);
@@ -46,7 +46,7 @@ function App() {
     setNodes(newNodes);
     setError('');
   };
-
+  // function to handle change in connection
   const handleConnectionChange = (event) => {
     const { name, value } = event.target;
     setNewConnection({ ...newConnection, [name]: parseInt(value) });
@@ -66,7 +66,7 @@ function App() {
       setError('Invalid connection. Please check the node numbers and ensure the connection is unique.');
     }
   };
-
+  // function to handle change in lost packet number
   const handleChangeLostPkt = (event) => {
     setLost_pkt(parseInt(event.target.value));
   };
@@ -78,6 +78,7 @@ function App() {
       setNodes(nodes.map(node =>
         node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
       ));
+      // update packet loss rate
       updatePacketLoss(updatedLost.length, sourceNode.sent.length);
       setError('');
     } else {
@@ -92,7 +93,7 @@ function App() {
       { x: simulationTime, y: lossRate }
     ]);
   };
-
+  // function to update network metrics
   const updateNetworkMetrics = () => {
     const currentNode = nodes[selectedNodeId];
     const packetsSent = currentNode.sent.length;
@@ -106,7 +107,7 @@ function App() {
     ]);
 
     updatePacketLoss(packetsLost, packetsSent);
-
+    // simulate latency
     const simulatedLatency = Math.random() * 150 + 50;
     setLatency(prevLatency => [
       ...prevLatency,
@@ -127,7 +128,7 @@ function App() {
       setError(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
       return;
     }
-
+    // update the ack number
     setNodes(prevNodes => {
       const updatedNodes = [...prevNodes];
       const currentNode = { ...updatedNodes[selectedNodeId] };
@@ -145,7 +146,7 @@ function App() {
     updateNetworkMetrics();
     setError('');
   };
-
+  // function to simulate next window
   const handleNext = () => {
     if (!isConnected(selectedNodeId, selectedDestNodeId)) {
       setError(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
@@ -307,8 +308,7 @@ function App() {
             <div className="section">
               <h2>Received Acknowledgement (ACK): {nodes[selectedNodeId].ack}</h2>
             </div>
-
-            <NetworkDashboard
+            <NetworkDashboard // pass network metrics to the dashboard
               throughput={throughput}
               packetLoss={packetLoss}
               latency={latency}
