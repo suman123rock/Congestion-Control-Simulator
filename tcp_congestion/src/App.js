@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback} from 'react';
 import './App.css';
 import NetworkDashboard from './NetworkDashboard';
+import Logger from './Logger';
+import Simulation from './simulation';
 
 function App() {
   const [nodes, setNodes] = useState([]);
@@ -16,15 +18,57 @@ function App() {
   const [congestionWindow, setCongestionWindow] = useState([]);
   const [simulationTime, setSimulationTime] = useState(0);
   const [error, setError] = useState('');
+  const [isAutoSimulationRunning, setIsAutoSimulationRunning] = useState(false);
+
+  const [logger] = useState(new Logger());
+  const [simulation, setSimulation] = useState(null);
+
+  const updateNetworkMetrics = useCallback(() => {
+    if (!simulation) return;
+
+    const currentNode = nodes[selectedNodeId];
+    const metrics = simulation.calculateAverageMetrics();
+    
+    setThroughput(prevThroughput => [
+      ...prevThroughput,
+      { x: simulationTime, y: metrics.throughput }
+    ]);
+
+    setPacketLoss(prevPacketLoss => [
+      ...prevPacketLoss,
+      { x: simulationTime, y: metrics.packetLoss }
+    ]);
+
+    setLatency(prevLatency => [
+      ...prevLatency,
+      { x: simulationTime, y: metrics.averageLatency }
+    ]);
+
+    setCongestionWindow(prevCongestionWindow => [
+      ...prevCongestionWindow,
+      { x: simulationTime, y: currentNode.cwnd }
+    ]);
+
+    logger.addLog({
+      algorithm: 'TCP',
+      packetLoss: metrics.packetLoss,
+      averageLatency: metrics.averageLatency,
+      throughput: metrics.throughput
+    });
+  }, [simulation, nodes, selectedNodeId, simulationTime, logger]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSimulationTime(prevTime => prevTime + 1);
-    }, 1000);
-
+    let timer;
+    if (isAutoSimulationRunning && simulation) {
+      timer = setInterval(() => {
+        setSimulationTime(prevTime => prevTime + 1);
+        simulation.simulateStep();
+        updateNetworkMetrics();
+      }, 1000);
+    }
     return () => clearInterval(timer);
-  }, []);
-  // function to handle change in number of nodes
+  }, [isAutoSimulationRunning, simulation, updateNetworkMetrics]);
+
   const handleNumNodesChange = (event) => {
     const value = parseInt(event.target.value);
     setNumNodes(value > 0 ? value : 0);
@@ -42,11 +86,15 @@ function App() {
       sent: [0],
       lost: [],
       ack: 0,
+      connections: []
     }));
     setNodes(newNodes);
     setError('');
+
+    const newSimulation = new Simulation(newNodes, connections, logger);
+    setSimulation(newSimulation);
   };
-  // function to handle change in connection
+
   const handleConnectionChange = (event) => {
     const { name, value } = event.target;
     setNewConnection({ ...newConnection, [name]: parseInt(value) });
@@ -60,13 +108,23 @@ function App() {
       from !== to &&
       !isConnected(from, to)
     ) {
-      setConnections([...connections, [from, to]]);
+      const newConnections = [...connections, [from, to]];
+      setConnections(newConnections);
+      setNodes(prevNodes => {
+        const updatedNodes = [...prevNodes];
+        updatedNodes[from].connections.push(to);
+        updatedNodes[to].connections.push(from);
+        return updatedNodes;
+      });
+      if (simulation) {
+        simulation.connections = newConnections;
+      }
       setError('');
     } else {
       setError('Invalid connection. Please check the node numbers and ensure the connection is unique.');
     }
   };
-  // function to handle change in lost packet number
+
   const handleChangeLostPkt = (event) => {
     setLost_pkt(parseInt(event.target.value));
   };
@@ -78,7 +136,6 @@ function App() {
       setNodes(nodes.map(node =>
         node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
       ));
-      // update packet loss rate
       updatePacketLoss(updatedLost.length, sourceNode.sent.length);
       setError('');
     } else {
@@ -92,94 +149,40 @@ function App() {
       ...prevPacketLoss,
       { x: simulationTime, y: lossRate }
     ]);
+
+    logger.addLog({
+      algorithm: 'TCP',
+      packetLoss: lossRate,
+      averageLatency: 0,
+      throughput: 0
+    });
   };
-  // function to update network metrics
-  const updateNetworkMetrics = () => {
-    const currentNode = nodes[selectedNodeId];
-    const packetsSent = currentNode.sent.length;
-    const packetsLost = currentNode.lost.length;
-    const successfulPackets = packetsSent - packetsLost;
-    const instantThroughput = successfulPackets / (simulationTime || 1);
 
-    setThroughput(prevThroughput => [
-      ...prevThroughput,
-      { x: simulationTime, y: instantThroughput }
-    ]);
-
-    updatePacketLoss(packetsLost, packetsSent);
-    // simulate latency
-    const simulatedLatency = Math.random() * 150 + 50;
-    setLatency(prevLatency => [
-      ...prevLatency,
-      { x: simulationTime, y: simulatedLatency }
-    ]);
-
-    setCongestionWindow(prevCongestionWindow => [
-      ...prevCongestionWindow,
-      { x: simulationTime, y: currentNode.cwnd }
-    ]);
-  };
   const isConnected = (from, to) => {
     return connections.some(conn => (conn[0] === from && conn[1] === to) || (conn[1] === from && conn[0] === to));
   };
-
+  
   const handleClick = () => {
     if (!isConnected(selectedNodeId, selectedDestNodeId)) {
       setError(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
       return;
     }
-    // update the ack number
-    setNodes(prevNodes => {
-      const updatedNodes = [...prevNodes];
-      const currentNode = { ...updatedNodes[selectedNodeId] };
 
-      if (currentNode.lost.length > 0) {
-        currentNode.ack = currentNode.lost[0];
-      } else {
-        currentNode.ack = currentNode.sent[currentNode.sent.length - 1] + 1;
-      }
-
-      updatedNodes[selectedNodeId] = currentNode;
-      return updatedNodes;
-    });
-
-    updateNetworkMetrics();
-    setError('');
-  };
-  // function to simulate next window
-  const handleNext = () => {
-    if (!isConnected(selectedNodeId, selectedDestNodeId)) {
-      setError(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
-      return;
+    if (simulation) {
+      simulation.simulateNodeStep(nodes[selectedNodeId]);
+      setNodes([...nodes]);
+      updateNetworkMetrics();
+      setError('');
     }
+  };
 
-    setNodes(prevNodes => {
-      const updatedNodes = [...prevNodes];
-      const currentNode = { ...updatedNodes[selectedNodeId] };
-
-      if (currentNode.cwnd < currentNode.ssthresh && currentNode.lost.length === 0) {
-        currentNode.cwnd += 1;
-        currentNode.sent = Array.from({ length: currentNode.cwnd + 1 }, (v, i) => currentNode.ack + 1 + i);
-      } else if (currentNode.lost.length !== 0) {
-        let last = currentNode.sent[currentNode.sent.length - 1];
-        currentNode.cwnd += 1;
-        currentNode.sent = [...currentNode.lost];
-        if (currentNode.sent.length <= currentNode.cwnd) {
-          currentNode.sent = currentNode.sent.concat(Array.from({ length: currentNode.cwnd - currentNode.sent.length + 1 }, (v, i) => last + 1 + i));
-        }
-        currentNode.lost = [];
-      } else {
-        currentNode.cwnd = 1;
-        currentNode.ssthresh = Math.floor(currentNode.ssthresh / 2);
-        currentNode.sent = Array.from({ length: currentNode.cwnd + 1 }, (v, i) => currentNode.ack + 1 + i);
-      }
-
-      updatedNodes[selectedNodeId] = currentNode;
-      return updatedNodes;
-    });
-
-    updateNetworkMetrics();
-    setError('');
+  const toggleAutoSimulation = () => {
+    if (isAutoSimulationRunning) {
+      simulation.stop();
+    } else {
+      simulation.start();
+    }
+    setIsAutoSimulationRunning(prevState => !prevState);
   };
 
   const resetSimulation = () => {
@@ -196,6 +199,15 @@ function App() {
     setCongestionWindow([]);
     setSimulationTime(0);
     setError('');
+    if (simulation) {
+      simulation.stop();
+    }
+    setSimulation(null);
+    logger.logs = [];
+  };
+
+  const exportLogs = (format) => {
+    logger.exportLogs(format);
   };
 
   return (
@@ -300,15 +312,15 @@ function App() {
               <button onClick={handleClick} className="simulate">
                 Simulate Packet Transfer for Current Window
               </button>
-              <button onClick={handleNext} className="simulate">
-                Shift the Window for Next Simulation Round
+              <button onClick={toggleAutoSimulation} className="simulate">
+                {isAutoSimulationRunning ? "Stop Auto Simulation" : "Start Auto Simulation"}
               </button>
             </div>
 
             <div className="section">
               <h2>Received Acknowledgement (ACK): {nodes[selectedNodeId].ack}</h2>
             </div>
-            <NetworkDashboard // pass network metrics to the dashboard
+            <NetworkDashboard
               throughput={throughput}
               packetLoss={packetLoss}
               latency={latency}
@@ -319,10 +331,16 @@ function App() {
               <button onClick={resetSimulation} className="reset">
                 Reset Simulation
               </button>
+              <button onClick={() => exportLogs('csv')} className="export">
+                Export Logs (CSV)
+              </button>
+              <button onClick={() => exportLogs('json')} className="export">
+                Export Logs (JSON)
+              </button>
             </div>
-          
           </>
         )}
+
         {error && (
           <div className="error-message">
             {error}
@@ -332,6 +350,5 @@ function App() {
     </div>
   );
 }
-
 
 export default App;
