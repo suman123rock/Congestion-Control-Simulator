@@ -60,7 +60,8 @@ const SimulationReport = ({ nodes, connections, throughput, packetLoss, latency,
               label: config.label,
               data: config.data.map(point => point.y),
               borderColor: config.color,
-              backgroundColor: config.color + '40',
+              backgroundColor: config.color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+
               fill: true,
               tension: 0.4
             }]

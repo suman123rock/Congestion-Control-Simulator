@@ -58,7 +58,7 @@ const NetworkDashboard = ({ throughput, packetLoss, latency, congestionWindow })
       label,
       data: data.map(point => point.y),
       borderColor: color,
-      backgroundColor: color + '40',
+      backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
       fill: true,
       tension: 0.4
     }]
