@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import NetworkDashboard from './NetworkDashboard';
 import Logger from './Logger';
 import Simulation from './simulation';
+import SimulationReport from './SimulationReport';
 
 function App() {
   const [nodes, setNodes] = useState([]);
@@ -19,16 +20,22 @@ function App() {
   const [simulationTime, setSimulationTime] = useState(0);
   const [error, setError] = useState('');
   const [isAutoSimulationRunning, setIsAutoSimulationRunning] = useState(false);
-
   const [logger] = useState(new Logger());
   const [simulation, setSimulation] = useState(null);
+  const [debugInfo, setDebugInfo] = useState({});
+  
+  // New states for loss mode and percentage
+  const [lossMode, setLossMode] = useState('manual'); // 'manual' or 'percentage'
+  const [lossPercentage, setLossPercentage] = useState(0);
+  const [packetsSent, setPacketsSent] = useState(0); // New state to track packets sent
+  const [packetsLost, setPacketsLost] = useState(0); // New state to track packets lost
 
   const updateNetworkMetrics = useCallback(() => {
     if (!simulation) return;
 
     const currentNode = nodes[selectedNodeId];
     const metrics = simulation.calculateAverageMetrics();
-    
+
     setThroughput(prevThroughput => [
       ...prevThroughput,
       { x: simulationTime, y: metrics.throughput }
@@ -68,6 +75,17 @@ function App() {
     }
     return () => clearInterval(timer);
   }, [isAutoSimulationRunning, simulation, updateNetworkMetrics]);
+
+  useEffect(() => {
+    setDebugInfo({
+      nodes: nodes.length,
+      connections: connections.length,
+      throughput: throughput.length,
+      packetLoss: packetLoss.length,
+      latency: latency.length,
+      congestionWindow: congestionWindow.length,
+    });
+  }, [nodes, connections, throughput, packetLoss, latency, congestionWindow]);
 
   const handleNumNodesChange = (event) => {
     const value = parseInt(event.target.value);
@@ -143,6 +161,26 @@ function App() {
     }
   };
 
+  // New function to simulate packet loss based on percentage
+  const simulatePacketLoss = (percentage) => {
+    const sourceNode = nodes[selectedNodeId];
+    const totalPackets = sourceNode.sent.length;
+    const packetsToLose = Math.floor((percentage / 100) * totalPackets);
+    const randomLostPackets = [];
+    while (randomLostPackets.length < packetsToLose) {
+      const randomIndex = Math.floor(Math.random() * totalPackets);
+      const packet = sourceNode.sent[randomIndex];
+      if (!randomLostPackets.includes(packet)) {
+        randomLostPackets.push(packet);
+      }
+    }
+    const updatedLost = [...sourceNode.lost, ...randomLostPackets];
+    setNodes(nodes.map(node =>
+      node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
+    ));
+    updatePacketLoss(updatedLost.length, sourceNode.sent.length);
+  };
+
   const updatePacketLoss = (lostPackets, totalPackets) => {
     const lossRate = (lostPackets / totalPackets) * 100 || 0;
     setPacketLoss(prevPacketLoss => [
@@ -169,9 +207,13 @@ function App() {
     }
 
     if (simulation) {
-      simulation.simulateNodeStep(nodes[selectedNodeId]);
+      const packetData = simulation.simulateNodeStep(nodes[selectedNodeId]);
       setNodes([...nodes]);
       updateNetworkMetrics();
+
+      // Capture packet statistics for display
+      setPacketsSent(packetData.packetsSent);
+      setPacketsLost(packetData.packetsLost);
       setError('');
     }
   };
@@ -217,7 +259,7 @@ function App() {
       </header>
       <div className="App-body">
         <div className="section">
-          <h3>Enter the number of nodes:</h3>
+        <h3>Enter the number of nodes:</h3>
           <input
             type="number"
             value={numNodes}
@@ -290,14 +332,17 @@ function App() {
               </div>
             </div>
 
-            <div className='section send'>
-              <div>
-                <h4>Packets to be transferred from Node {selectedNodeId}</h4>
-                <h5>#{nodes[selectedNodeId].sent.join(', ')}</h5>
-              </div>
-              <div>
-                <h4>Packets simulated as lost in this window</h4>
-                <h5>#{nodes[selectedNodeId].lost.join(', ')}</h5>
+            <div className="new-section">
+              <label>Loss Input Mode:</label>
+              <select onChange={(e) => setLossMode(e.target.value)} value={lossMode}>
+                <option value="manual">Manual Entry</option>
+                <option value="percentage">Simulate Percentage</option>
+              </select>
+            </div>
+
+            {lossMode === 'manual' && (
+              <div className="loss-section">
+                <h4>Enter Packet Sequence Number to Mark as Lost</h4>
                 <input
                   type="number"
                   onChange={handleChangeLostPkt}
@@ -306,6 +351,37 @@ function App() {
                 />
                 <button onClick={handleLost}>Mark as Lost</button>
               </div>
+            )}
+
+            {lossMode === 'percentage' && (
+              <div className="loss-section">
+                <h4>Enter Packet Loss Percentage</h4>
+                <input
+                  type="number"
+                  onChange={(e) => setLossPercentage(parseInt(e.target.value))}
+                  value={lossPercentage}
+                  min={0}
+                  max={100}
+                />
+                <button onClick={() => simulatePacketLoss(lossPercentage)}>Simulate Loss</button>
+              </div>
+            )}
+
+            <div className="section send">
+              <div>
+                <h4>Packets to be transferred from Node {selectedNodeId}</h4>
+                <h5>#{nodes[selectedNodeId].sent.join(', ')}</h5>
+              </div>
+              <div>
+                <h4>Packets lost in this window</h4>
+                <h5>#{nodes[selectedNodeId].lost.join(', ')}</h5>
+              </div>
+            </div>
+
+            {/* New section to display the number of packets sent and lost */}
+            <div className="section">
+              <h4>Packets Sent in Current Window: {packetsSent}</h4>
+              <h4>Packets Lost in Current Window: {packetsLost}</h4>
             </div>
 
             <div className="button-group">
@@ -337,6 +413,19 @@ function App() {
               <button onClick={() => exportLogs('json')} className="export">
                 Export Logs (JSON)
               </button>
+              <SimulationReport
+                nodes={nodes}
+                connections={connections}
+                throughput={throughput}
+                packetLoss={packetLoss}
+                latency={latency}
+                congestionWindow={congestionWindow}
+              />
+            </div>
+
+            <div>
+              <h3>Debug Info:</h3>
+              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
             </div>
           </>
         )}
@@ -352,3 +441,4 @@ function App() {
 }
 
 export default App;
+

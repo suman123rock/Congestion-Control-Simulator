@@ -51,18 +51,19 @@ const NetworkDashboard = ({ throughput, packetLoss, latency, congestionWindow })
       },
     },
   };
-  // function to create chart data for each metric
+
   const createChartData = (data, label, color) => ({
+    labels: data.map(point => point.x),
     datasets: [{
       label,
-      data,
+      data: data.map(point => point.y),
       borderColor: color,
       backgroundColor: color + '40',
       fill: true,
       tension: 0.4
     }]
   });
-  // array of charts with corresponding data, label, and color
+
   const charts = [
     { data: throughput, label: 'Throughput', color: 'rgb(75, 192, 192)' },
     { data: packetLoss, label: 'Packet Loss (%)', color: 'rgb(255, 99, 132)' },

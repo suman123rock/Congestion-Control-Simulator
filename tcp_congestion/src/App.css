@@ -115,8 +115,6 @@ button:hover {
   background-color: #45a049;
 }
 
-
-
 .network-dashboard {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -130,6 +128,36 @@ button:hover {
   padding: 20px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   height: 300px; 
+}
+
+.loss-section {
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: var(--border-radius);
+}
+
+.loss-section h4 {
+  margin-bottom: 10px;
+}
+
+.loss-section input[type="number"] {
+  width: 80%;
+  padding: 10px;
+  margin: 5px 0;
+}
+
+.loss-section button {
+  margin-top: 10px;
+}
+
+.new-section {
+  margin: 20px 0;
+  padding: 20px;
+  background-color: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 1200px) {

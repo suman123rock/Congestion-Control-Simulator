@@ -1,5 +1,4 @@
 import { saveAs } from 'file-saver';
-
 class Logger {
   constructor() {
     this.logs = [];
