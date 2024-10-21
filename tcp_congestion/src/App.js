@@ -4,6 +4,7 @@ import NetworkDashboard from './NetworkDashboard';
 import Logger from './Logger';
 import Simulation from './simulation';
 import SimulationReport from './SimulationReport';
+import FastCongestionControl from './FastCongestionControl';
 
 function App() {
   const [nodes, setNodes] = useState([]);
@@ -29,6 +30,9 @@ function App() {
   const [lossPercentage, setLossPercentage] = useState(0);
   const [packetsSent, setPacketsSent] = useState(0); // New state to track packets sent
   const [packetsLost, setPacketsLost] = useState(0); // New state to track packets lost
+
+  // New state to keep track of the algorithm selected
+  const [algorithm, setAlgorithm] = useState('default');
 
   const updateNetworkMetrics = useCallback(() => {
     if (!simulation) return;
@@ -252,6 +256,10 @@ function App() {
     logger.exportLogs(format);
   };
 
+  const handleUpdateNetwork = () => {
+    updateNetworkMetrics(); // A function that recalculates and updates network statistics
+  };
+
   return (
     <div className="App">
       <header className="App-header">
@@ -365,6 +373,25 @@ function App() {
                 />
                 <button onClick={() => simulatePacketLoss(lossPercentage)}>Simulate Loss</button>
               </div>
+            )}
+
+            {/* Algorithm selection dropdown */}
+            <div className="section">
+              <label>Select Congestion Control Algorithm:</label>
+              <select onChange={(e) => setAlgorithm(e.target.value)} value={algorithm}>
+                <option value="default">Default</option>
+                <option value="fast_congestion_control">Fast Congestion Control (Retransmit + Recovery)</option>
+              </select>
+            </div>
+
+            {/* Render the selected algorithm */}
+            {algorithm === 'fast_congestion_control' && (
+              <FastCongestionControl
+                nodes={nodes}
+                setNodes={setNodes}
+                selectedNodeId={selectedNodeId}
+                onUpdateNetwork={handleUpdateNetwork}
+              />
             )}
 
             <div className="section send">
