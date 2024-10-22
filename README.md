@@ -4,7 +4,7 @@ This tool is designed to help students and enthusiasts understand and visualize 
 
 ## Project Overview
 
-This simulator provides an interactive way to learn about TCP's congestion control algorithms. By simulating packet transfers and visualizing the impact of network conditions, users can gain a deeper understanding of how TCP manages congestion to maintain efficient data transfer. The primary focus is on the Slow Start and Congestion Avoidance algorithms.
+This simulator provides an interactive way to learn about TCP's congestion control algorithms. By simulating packet transfers and visualizing the impact of network conditions, users can gain a deeper understanding of how TCP manages congestion to maintain efficient data transfer. The primary focus is on the Slow Start, Congestion Avoidance, Fast Retransmit and Fast Recovery algorithms.
 
 ## Features
 
