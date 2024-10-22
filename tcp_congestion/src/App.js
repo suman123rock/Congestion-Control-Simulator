@@ -1,109 +1,471 @@
-import logo from './logo.svg';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
-import React, { useState } from 'react';
+import NetworkDashboard from './NetworkDashboard';
+import Logger from './Logger';
+import Simulation from './simulation';
+import SimulationReport from './SimulationReport';
+import FastCongestionControl from './FastCongestionControl';
 
 function App() {
-  const state = useState()
-  const [cwnd, setCwnd] = useState(1);
-  const [ssthresh, setSsthresh] = useState(64);
-  const [sent, setSent] = useState([0]);
-  const [lost, setLost] = useState([]);
+  const [nodes, setNodes] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [numNodes, setNumNodes] = useState(0);
+  const [newConnection, setNewConnection] = useState({ from: 0, to: 0 });
+  const [selectedNodeId, setSelectedNodeId] = useState(0);
+  const [selectedDestNodeId, setSelectedDestNodeId] = useState(1);
   const [lost_pkt, setLost_pkt] = useState(0);
-  const [ack, setAck] = useState(0);
+  const [throughput, setThroughput] = useState([]);
+  const [packetLoss, setPacketLoss] = useState([]);
+  const [latency, setLatency] = useState([]);
+  const [congestionWindow, setCongestionWindow] = useState([]);
+  const [simulationTime, setSimulationTime] = useState(0);
+  const [error, setError] = useState('');
+  const [isAutoSimulationRunning, setIsAutoSimulationRunning] = useState(false);
+  const [logger] = useState(new Logger());
+  const [simulation, setSimulation] = useState(null);
+  const [debugInfo, setDebugInfo] = useState({});
+  
+  // New states for loss mode and percentage
+  const [lossMode, setLossMode] = useState('manual'); // 'manual' or 'percentage'
+  const [lossPercentage, setLossPercentage] = useState(0);
+  const [packetsSent, setPacketsSent] = useState(0); // New state to track packets sent
+  const [packetsLost, setPacketsLost] = useState(0); // New state to track packets lost
 
-  const handleChangeThresh = (event) => {
-      setSsthresh(parseInt(event.target.value));
-  }
+  // New state to keep track of the algorithm selected
+  const [algorithm, setAlgorithm] = useState('default');
 
-  const handleChange = (event) => {
-      setLost_pkt(parseInt(event.target.value));
-  }
+  const updateNetworkMetrics = useCallback(() => {
+    if (!simulation) return;
+
+    const currentNode = nodes[selectedNodeId];
+    const metrics = simulation.calculateAverageMetrics();
+
+    setThroughput(prevThroughput => [
+      ...prevThroughput,
+      { x: simulationTime, y: metrics.throughput }
+    ]);
+
+    setPacketLoss(prevPacketLoss => [
+      ...prevPacketLoss,
+      { x: simulationTime, y: metrics.packetLoss }
+    ]);
+
+    setLatency(prevLatency => [
+      ...prevLatency,
+      { x: simulationTime, y: metrics.averageLatency }
+    ]);
+
+    setCongestionWindow(prevCongestionWindow => [
+      ...prevCongestionWindow,
+      { x: simulationTime, y: currentNode.cwnd }
+    ]);
+
+    logger.addLog({
+      algorithm: 'TCP',
+      packetLoss: metrics.packetLoss,
+      averageLatency: metrics.averageLatency,
+      throughput: metrics.throughput
+    });
+  }, [simulation, nodes, selectedNodeId, simulationTime, logger]);
+
+  useEffect(() => {
+    let timer;
+    if (isAutoSimulationRunning && simulation) {
+      timer = setInterval(() => {
+        setSimulationTime(prevTime => prevTime + 1);
+        simulation.simulateStep();
+        updateNetworkMetrics();
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [isAutoSimulationRunning, simulation, updateNetworkMetrics]);
+
+  useEffect(() => {
+    setDebugInfo({
+      nodes: nodes.length,
+      connections: connections.length,
+      throughput: throughput.length,
+      packetLoss: packetLoss.length,
+      latency: latency.length,
+      congestionWindow: congestionWindow.length,
+    });
+  }, [nodes, connections, throughput, packetLoss, latency, congestionWindow]);
+
+  const handleNumNodesChange = (event) => {
+    const value = parseInt(event.target.value);
+    setNumNodes(value > 0 ? value : 0);
+  };
+
+  const createNodes = () => {
+    if (numNodes <= 0) {
+      setError('Please enter a valid number of nodes.');
+      return;
+    }
+    const newNodes = Array.from({ length: numNodes }, (_, id) => ({
+      id,
+      cwnd: 1,
+      ssthresh: 64,
+      sent: [0],
+      lost: [],
+      ack: 0,
+      connections: []
+    }));
+    setNodes(newNodes);
+    setError('');
+
+    const newSimulation = new Simulation(newNodes, connections, logger);
+    setSimulation(newSimulation);
+  };
+
+  const handleConnectionChange = (event) => {
+    const { name, value } = event.target;
+    setNewConnection({ ...newConnection, [name]: parseInt(value) });
+  };
+
+  const addConnection = () => {
+    const { from, to } = newConnection;
+    if (
+      from >= 0 && from < nodes.length &&
+      to >= 0 && to < nodes.length &&
+      from !== to &&
+      !isConnected(from, to)
+    ) {
+      const newConnections = [...connections, [from, to]];
+      setConnections(newConnections);
+      setNodes(prevNodes => {
+        const updatedNodes = [...prevNodes];
+        updatedNodes[from].connections.push(to);
+        updatedNodes[to].connections.push(from);
+        return updatedNodes;
+      });
+      if (simulation) {
+        simulation.connections = newConnections;
+      }
+      setError('');
+    } else {
+      setError('Invalid connection. Please check the node numbers and ensure the connection is unique.');
+    }
+  };
+
+  const handleChangeLostPkt = (event) => {
+    setLost_pkt(parseInt(event.target.value));
+  };
 
   const handleLost = () => {
-      if(lost.indexOf(lost_pkt) == -1 && sent.indexOf(lost_pkt) != -1){
-          setLost([...lost, lost_pkt]);
-      }
-  }
-
-  const handleClick = () => {
-      if(lost.length > 0){
-          setAck(lost[0]);
-      }
-      else {
-          setAck(sent[sent.length - 1]+1)
-      }
-  }
-
-  const handleNext = () => {
-      if(cwnd < ssthresh && lost.length == 0){
-          setCwnd(cwnd+1);
-          setSent(Array.from({ length: cwnd + 1 }, (v, i) => ack+1 + i));
-          // cwnd: state.cwnd + 1,
-          // ssthresh: state.ssthresh,
-          // sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => this.state.ack + i)
-      }
-      else if(lost.length != 0)
-      {
-        let last = sent[sent.length - 1];
-        setCwnd(cwnd+1);
-        console.log(lost.length, cwnd, sent.length, last, lost[0])
-        setSent(lost);
-        if(sent.length <= cwnd)
-          setSent(sent.concat(Array.from({ length: sent.length - cwnd + 1 }, (v, i) => last+1 + i)));
-        setLost([]);
-        // sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => state.sent[state.sent.length-1]+1 + i),
-        // lost: []
-      }
-      else {
-          setCwnd(1);
-          setSsthresh(ssthresh/2);
-          setSent(Array.from({ length: cwnd + 1 }, (v, i) => ack+1 + i));
-          // cwnd: 1,
-          // ssthresh: state.ssthresh/2,
-          // sent: Array.from({ length: this.state.cwnd + 1 }, (v, i) => this.state.ack + i)
-      }
+    const sourceNode = nodes.find(node => node.id === selectedNodeId);
+    if (sourceNode.lost.indexOf(lost_pkt) === -1 && sourceNode.sent.indexOf(lost_pkt) !== -1) {
+      const updatedLost = [...sourceNode.lost, lost_pkt];
+      setNodes(nodes.map(node =>
+        node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
+      ));
+      updatePacketLoss(updatedLost.length, sourceNode.sent.length);
+      setError('');
+    } else {
+      setError('Invalid packet number. Please check the packet exists and is not already marked as lost.');
+    }
   };
+
+  // New function to simulate packet loss based on percentage
+  const simulatePacketLoss = (percentage) => {
+    const sourceNode = nodes[selectedNodeId];
+    const totalPackets = sourceNode.sent.length;
+    const packetsToLose = Math.floor((percentage / 100) * totalPackets);
+    const randomLostPackets = [];
+    while (randomLostPackets.length < packetsToLose) {
+      const randomIndex = Math.floor(Math.random() * totalPackets);
+      const packet = sourceNode.sent[randomIndex];
+      if (!randomLostPackets.includes(packet)) {
+        randomLostPackets.push(packet);
+      }
+    }
+    const updatedLost = [...sourceNode.lost, ...randomLostPackets];
+    setNodes(nodes.map(node =>
+      node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
+    ));
+    updatePacketLoss(updatedLost.length, sourceNode.sent.length);
+  };
+
+  const updatePacketLoss = (lostPackets, totalPackets) => {
+    const lossRate = (lostPackets / totalPackets) * 100 || 0;
+    setPacketLoss(prevPacketLoss => [
+      ...prevPacketLoss,
+      { x: simulationTime, y: lossRate }
+    ]);
+
+    logger.addLog({
+      algorithm: 'TCP',
+      packetLoss: lossRate,
+      averageLatency: 0,
+      throughput: 0
+    });
+  };
+
+  const isConnected = (from, to) => {
+    return connections.some(conn => (conn[0] === from && conn[1] === to) || (conn[1] === from && conn[0] === to));
+  };
+  
+  const handleClick = () => {
+    if (!isConnected(selectedNodeId, selectedDestNodeId)) {
+      setError(`No connection exists between Node ${selectedNodeId} and Node ${selectedDestNodeId}`);
+      return;
+    }
+
+    if (simulation) {
+      const packetData = simulation.simulateNodeStep(nodes[selectedNodeId]);
+      setNodes([...nodes]);
+      updateNetworkMetrics();
+
+      // Capture packet statistics for display
+      setPacketsSent(packetData.packetsSent);
+      setPacketsLost(packetData.packetsLost);
+      setError('');
+    }
+  };
+
+  const toggleAutoSimulation = () => {
+    if (isAutoSimulationRunning) {
+      simulation.stop();
+    } else {
+      simulation.start();
+    }
+    setIsAutoSimulationRunning(prevState => !prevState);
+  };
+
+  const resetSimulation = () => {
+    setNodes([]);
+    setConnections([]);
+    setNumNodes(0);
+    setNewConnection({ from: 0, to: 0 });
+    setSelectedNodeId(0);
+    setSelectedDestNodeId(1);
+    setLost_pkt(0);
+    setThroughput([]);
+    setPacketLoss([]);
+    setLatency([]);
+    setCongestionWindow([]);
+    setSimulationTime(0);
+    setError('');
+    if (simulation) {
+      simulation.stop();
+    }
+    setSimulation(null);
+    logger.logs = [];
+  };
+
+  const exportLogs = (format) => {
+    logger.exportLogs(format);
+  };
+
+  const handleUpdateNetwork = () => {
+    updateNetworkMetrics(); // A function that recalculates and updates network statistics
+  };
+
   return (
     <div className="App">
       <header className="App-header">
-      Simulate Congestion Control Algorithms
+        Simulate Congestion Control Algorithms with Multiple Nodes
       </header>
       <div className="App-body">
-      <div className="initialvalues">
-        <div className='pkthead'>
-        <h2>Congestion Window</h2>
-        { cwnd }
+        <div className="section">
+        <h3>Enter the number of nodes:</h3>
+          <input
+            type="number"
+            value={numNodes}
+            onChange={handleNumNodesChange}
+            min="0"
+          />
+          <button onClick={createNodes}>Create Nodes</button>
         </div>
-        <div className='pkthead'>
-        <h2>Slow Start Threshold</h2>
-        {ssthresh}
-        </div>
-        <div className='pkthead'>
-        <h3>Change Initial Slow Start Threshold</h3>
-        <input onChange={handleChangeThresh} value={ssthresh} />
-        </div>
-        </div>
-        <div className='send'>
-        <div>
-      <h4>The packets to be transferred in this window have the following sequence numbers</h4>
-      <h5># {sent}</h5>
+
+        {nodes.length > 0 && (
+          <div className="section">
+            <h3>Define connections between nodes:</h3>
+            <div>
+              <label>From Node:</label>
+              <input
+                type="number"
+                name="from"
+                value={newConnection.from}
+                onChange={handleConnectionChange}
+                min="0"
+                max={numNodes - 1}
+              />
+              <label>To Node:</label>
+              <input
+                type="number"
+                name="to"
+                value={newConnection.to}
+                onChange={handleConnectionChange}
+                min="0"
+                max={numNodes - 1}
+              />
+              <button onClick={addConnection}>Add Connection</button>
+            </div>
+
+            <h4>Existing Connections:</h4>
+            <ul>
+              {connections.map((conn, index) => (
+                <li key={index}>Node {conn[0]} ↔ Node {conn[1]}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {nodes.length > 0 && (
+          <>
+            <div className="section initialvalues">
+              <div className='pkthead'>
+                <h2>Select Source Node</h2>
+                <select onChange={(e) => setSelectedNodeId(parseInt(e.target.value))} value={selectedNodeId}>
+                  {nodes.map(node => (
+                    <option key={node.id} value={node.id}>Node {node.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className='pkthead'>
+                <h2>Select Destination Node</h2>
+                <select onChange={(e) => setSelectedDestNodeId(parseInt(e.target.value))} value={selectedDestNodeId}>
+                  {nodes.map(node => (
+                    <option key={node.id} value={node.id}>Node {node.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div className='pkthead'>
+                <h2>Congestion Window (Node {selectedNodeId})</h2>
+                {nodes[selectedNodeId].cwnd}
+              </div>
+              <div className='pkthead'>
+                <h2>Slow Start Threshold (Node {selectedNodeId})</h2>
+                {nodes[selectedNodeId].ssthresh}
+              </div>
+            </div>
+
+            <div className="new-section">
+              <label>Loss Input Mode:</label>
+              <select onChange={(e) => setLossMode(e.target.value)} value={lossMode}>
+                <option value="manual">Manual Entry</option>
+                <option value="percentage">Simulate Percentage</option>
+              </select>
+            </div>
+
+            {lossMode === 'manual' && (
+              <div className="loss-section">
+                <h4>Enter Packet Sequence Number to Mark as Lost</h4>
+                <input
+                  type="number"
+                  onChange={handleChangeLostPkt}
+                  value={lost_pkt}
+                  min={0}
+                />
+                <button onClick={handleLost}>Mark as Lost</button>
+              </div>
+            )}
+
+            {lossMode === 'percentage' && (
+              <div className="loss-section">
+                <h4>Enter Packet Loss Percentage</h4>
+                <input
+                  type="number"
+                  onChange={(e) => setLossPercentage(parseInt(e.target.value))}
+                  value={lossPercentage}
+                  min={0}
+                  max={100}
+                />
+                <button onClick={() => simulatePacketLoss(lossPercentage)}>Simulate Loss</button>
+              </div>
+            )}
+
+            {/* Algorithm selection dropdown */}
+            <div className="section">
+              <label>Select Congestion Control Algorithm:</label>
+              <select onChange={(e) => setAlgorithm(e.target.value)} value={algorithm}>
+                <option value="default">Default</option>
+                <option value="fast_congestion_control">Fast Congestion Control (Retransmit + Recovery)</option>
+              </select>
+            </div>
+
+            {/* Render the selected algorithm */}
+            {algorithm === 'fast_congestion_control' && (
+              <FastCongestionControl
+                nodes={nodes}
+                setNodes={setNodes}
+                selectedNodeId={selectedNodeId}
+                onUpdateNetwork={handleUpdateNetwork}
+              />
+            )}
+
+            <div className="section send">
+              <div>
+                <h4>Packets to be transferred from Node {selectedNodeId}</h4>
+                <h5>#{nodes[selectedNodeId].sent.join(', ')}</h5>
+              </div>
+              <div>
+                <h4>Packets lost in this window</h4>
+                <h5>#{nodes[selectedNodeId].lost.join(', ')}</h5>
+              </div>
+            </div>
+
+            {/* New section to display the number of packets sent and lost */}
+            <div className="section">
+              <h4>Packets Sent in Current Window: {packetsSent}</h4>
+              <h4>Packets Lost in Current Window: {packetsLost}</h4>
+            </div>
+
+            <div className="button-group">
+              <button onClick={handleClick} className="simulate">
+                Simulate Packet Transfer for Current Window
+              </button>
+              <button onClick={toggleAutoSimulation} className="simulate">
+                {isAutoSimulationRunning ? "Stop Auto Simulation" : "Start Auto Simulation"}
+              </button>
+            </div>
+
+            <div className="section">
+              <h2>Received Acknowledgement (ACK): {nodes[selectedNodeId].ack}</h2>
+            </div>
+            <NetworkDashboard
+              throughput={throughput}
+              packetLoss={packetLoss}
+              latency={latency}
+              congestionWindow={congestionWindow}
+            />
+
+            <div className="button-group">
+              <button onClick={resetSimulation} className="reset">
+                Reset Simulation
+              </button>
+              <button onClick={() => exportLogs('csv')} className="export">
+                Export Logs (CSV)
+              </button>
+              <button onClick={() => exportLogs('json')} className="export">
+                Export Logs (JSON)
+              </button>
+              <SimulationReport
+                nodes={nodes}
+                connections={connections}
+                throughput={throughput}
+                packetLoss={packetLoss}
+                latency={latency}
+                congestionWindow={congestionWindow}
+              />
+            </div>
+
+            <div>
+              <h3>Debug Info:</h3>
+              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          </>
+        )}
+
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
       </div>
-      <div>
-      <h4>The packets to be simulated as lost in this window have the following sequence numbers</h4>
-      <h5># {lost}</h5>
-      <p></p>
-        <input onChange={handleChange} value={lost_pkt} />
-        <button onClick={handleLost}>Lost</button>
-      </div>
-      </div>
-        <button onClick={handleClick} className="simulate">Simulate the packet transfer for current window</button>
-        <div className="ack">
-          <h2>Received Acknowledgement after transfer : ACK{ack}</h2>
-        </div>
-        <button onClick={handleNext} className="simulate">Shift the window for next simulation round.</button>
-    </div>
     </div>
   );
 }
 
 export default App;
+
