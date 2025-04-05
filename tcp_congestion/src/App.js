@@ -5,6 +5,9 @@ import Logger from './Logger';
 import Simulation from './simulation';
 import SimulationReport from './SimulationReport';
 import FastCongestionControl from './FastCongestionControl';
+import TcpReno from './TcpReno';
+import TcpRenoDemoDiagram from './TCPRenoDemoDiagram';
+import TcpRenoCwndChart from './TcpRenoCwndChart';
 
 function App() {
   const [nodes, setNodes] = useState([]);
@@ -24,6 +27,8 @@ function App() {
   const [logger] = useState(new Logger());
   const [simulation, setSimulation] = useState(null);
   const [debugInfo, setDebugInfo] = useState({});
+  const [ssthreshData, setSsthreshData] = useState([]);
+
   
   // New states for loss mode and percentage
   const [lossMode, setLossMode] = useState('manual'); // 'manual' or 'percentage'
@@ -37,8 +42,15 @@ function App() {
   const updateNetworkMetrics = useCallback(() => {
     if (!simulation) return;
 
-    const currentNode = nodes[selectedNodeId];
+    //const currentNode = nodes[selectedNodeId];
+    const currentNode = simulation.nodes[selectedNodeId]; // instead of from `nodes[]`
+
+    const ssthreshValue = currentNode.ssthresh || 64;
+    setSsthreshData(prev => [...prev, { x: simulationTime, y: ssthreshValue }]);
     const metrics = simulation.calculateAverageMetrics();
+
+    setNodes([...nodes]); // force React to notice node updates
+
 
     setThroughput(prevThroughput => [
       ...prevThroughput,
@@ -113,7 +125,13 @@ function App() {
     setNodes(newNodes);
     setError('');
 
+// Added TCP Renu Simulation 
     const newSimulation = new Simulation(newNodes, connections, logger);
+    if (algorithm === 'tcp_reno') {
+      newSimulation.setAlgorithm('TCP Reno');
+      const reno = new TcpReno(newSimulation.packetLossRate);
+      newSimulation.simulateNodeStep = node => reno.simulateNodeStep(node);
+    }
     setSimulation(newSimulation);
   };
 
@@ -147,58 +165,58 @@ function App() {
     }
   };
 
-  const handleChangeLostPkt = (event) => {
-    setLost_pkt(parseInt(event.target.value));
-  };
+  // const handleChangeLostPkt = (event) => {
+  //   setLost_pkt(parseInt(event.target.value));
+  // };
 
-  const handleLost = () => {
-    const sourceNode = nodes.find(node => node.id === selectedNodeId);
-    if (sourceNode.lost.indexOf(lost_pkt) === -1 && sourceNode.sent.indexOf(lost_pkt) !== -1) {
-      const updatedLost = [...sourceNode.lost, lost_pkt];
-      setNodes(nodes.map(node =>
-        node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
-      ));
-      updatePacketLoss(updatedLost.length, sourceNode.sent.length);
-      setError('');
-    } else {
-      setError('Invalid packet number. Please check the packet exists and is not already marked as lost.');
-    }
-  };
+  // const handleLost = () => {
+  //   const sourceNode = nodes.find(node => node.id === selectedNodeId);
+  //   if (sourceNode.lost.indexOf(lost_pkt) === -1 && sourceNode.sent.indexOf(lost_pkt) !== -1) {
+  //     const updatedLost = [...sourceNode.lost, lost_pkt];
+  //     setNodes(nodes.map(node =>
+  //       node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
+  //     ));
+  //     updatePacketLoss(updatedLost.length, sourceNode.sent.length);
+  //     setError('');
+  //   } else {
+  //     setError('Invalid packet number. Please check the packet exists and is not already marked as lost.');
+  //   }
+  // };
 
   // New function to simulate packet loss based on percentage
-  const simulatePacketLoss = (percentage) => {
-    const sourceNode = nodes[selectedNodeId];
-    const totalPackets = sourceNode.sent.length;
-    const packetsToLose = Math.floor((percentage / 100) * totalPackets);
-    const randomLostPackets = [];
-    while (randomLostPackets.length < packetsToLose) {
-      const randomIndex = Math.floor(Math.random() * totalPackets);
-      const packet = sourceNode.sent[randomIndex];
-      if (!randomLostPackets.includes(packet)) {
-        randomLostPackets.push(packet);
-      }
-    }
-    const updatedLost = [...sourceNode.lost, ...randomLostPackets];
-    setNodes(nodes.map(node =>
-      node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
-    ));
-    updatePacketLoss(updatedLost.length, sourceNode.sent.length);
-  };
+  // const simulatePacketLoss = (percentage) => {
+  //   const sourceNode = nodes[selectedNodeId];
+  //   const totalPackets = sourceNode.sent.length;
+  //   const packetsToLose = Math.floor((percentage / 100) * totalPackets);
+  //   const randomLostPackets = [];
+  //   while (randomLostPackets.length < packetsToLose) {
+  //     const randomIndex = Math.floor(Math.random() * totalPackets);
+  //     const packet = sourceNode.sent[randomIndex];
+  //     if (!randomLostPackets.includes(packet)) {
+  //       randomLostPackets.push(packet);
+  //     }
+  //   }
+  //   const updatedLost = [...sourceNode.lost, ...randomLostPackets];
+  //   setNodes(nodes.map(node =>
+  //     node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
+  //   ));
+  //   updatePacketLoss(updatedLost.length, sourceNode.sent.length);
+  // };
 
-  const updatePacketLoss = (lostPackets, totalPackets) => {
-    const lossRate = (lostPackets / totalPackets) * 100 || 0;
-    setPacketLoss(prevPacketLoss => [
-      ...prevPacketLoss,
-      { x: simulationTime, y: lossRate }
-    ]);
+  // const updatePacketLoss = (lostPackets, totalPackets) => {
+  //   const lossRate = (lostPackets / totalPackets) * 100 || 0;
+  //   setPacketLoss(prevPacketLoss => [
+  //     ...prevPacketLoss,
+  //     { x: simulationTime, y: lossRate }
+  //   ]);
 
-    logger.addLog({
-      algorithm: 'TCP',
-      packetLoss: lossRate,
-      averageLatency: 0,
-      throughput: 0
-    });
-  };
+  //   logger.addLog({
+  //     algorithm: 'TCP',
+  //     packetLoss: lossRate,
+  //     averageLatency: 0,
+  //     throughput: 0
+  //   });
+  // };
 
   const isConnected = (from, to) => {
     return connections.some(conn => (conn[0] === from && conn[1] === to) || (conn[1] === from && conn[0] === to));
@@ -263,7 +281,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        Simulate Congestion Control Algorithms with Multiple Nodes
+        Simulate Congestion Control Algorithms with Multi Algorithm Support
       </header>
       <div className="App-body">
         <div className="section">
@@ -340,15 +358,15 @@ function App() {
               </div>
             </div>
 
-            <div className="new-section">
+            {/* <div className="new-section">
               <label>Loss Input Mode:</label>
               <select onChange={(e) => setLossMode(e.target.value)} value={lossMode}>
                 <option value="manual">Manual Entry</option>
                 <option value="percentage">Simulate Percentage</option>
               </select>
-            </div>
+            </div> */}
 
-            {lossMode === 'manual' && (
+            {/* {lossMode === 'manual' && (
               <div className="loss-section">
                 <h4>Enter Packet Sequence Number to Mark as Lost</h4>
                 <input
@@ -373,7 +391,7 @@ function App() {
                 />
                 <button onClick={() => simulatePacketLoss(lossPercentage)}>Simulate Loss</button>
               </div>
-            )}
+            )} */}
 
             {/* Algorithm selection dropdown */}
             <div className="section">
@@ -381,6 +399,7 @@ function App() {
               <select onChange={(e) => setAlgorithm(e.target.value)} value={algorithm}>
                 <option value="default">Default</option>
                 <option value="fast_congestion_control">Fast Congestion Control (Retransmit + Recovery)</option>
+                <option value="tcp_reno">TCP Reno</option>
               </select>
             </div>
 
@@ -393,8 +412,9 @@ function App() {
                 onUpdateNetwork={handleUpdateNetwork}
               />
             )}
-
-            <div className="section send">
+            
+         
+            {false && <div className="section send">
               <div>
                 <h4>Packets to be transferred from Node {selectedNodeId}</h4>
                 <h5>#{nodes[selectedNodeId].sent.join(', ')}</h5>
@@ -403,7 +423,7 @@ function App() {
                 <h4>Packets lost in this window</h4>
                 <h5>#{nodes[selectedNodeId].lost.join(', ')}</h5>
               </div>
-            </div>
+            </div> }
 
             {/* New section to display the number of packets sent and lost */}
             <div className="section">
@@ -429,6 +449,22 @@ function App() {
               latency={latency}
               congestionWindow={congestionWindow}
             />
+            {algorithm === 'tcp_reno' && (
+              <div className="section">
+               <h3>TCP Reno cwnd & ssthresh Chart</h3>
+               <TcpRenoCwndChart
+               congestionWindow={congestionWindow}
+               ssthreshData={ssthreshData}
+              />
+             </div>
+            )}
+
+            {algorithm === 'tcp_reno' && (
+               <div className="section">
+               <h3>TCP Reno Visual Demo</h3>
+               <TcpRenoDemoDiagram />
+               </div>
+            )}
 
             <div className="button-group">
               <button onClick={resetSimulation} className="reset">
