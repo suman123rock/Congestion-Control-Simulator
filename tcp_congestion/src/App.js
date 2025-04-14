@@ -8,6 +8,11 @@ import FastCongestionControl from './FastCongestionControl';
 import TcpReno from './TcpReno';
 import TcpRenoDemoDiagram from './TCPRenoDemoDiagram';
 import TcpRenoCwndChart from './TcpRenoCwndChart';
+import TcpPcc from './TcpPcc';
+import TcpPccCwndChart from './TcpPccCwndChart';
+import TcpPccDemoDiagram from './TcpPccDemoDiagram';
+
+
 
 function App() {
   const [nodes, setNodes] = useState([]);
@@ -28,6 +33,8 @@ function App() {
   const [simulation, setSimulation] = useState(null);
   const [debugInfo, setDebugInfo] = useState({});
   const [ssthreshData, setSsthreshData] = useState([]);
+  const [utilityData, setUtilityData] = useState([]);
+
 
   
   // New states for loss mode and percentage
@@ -44,12 +51,21 @@ function App() {
 
     //const currentNode = nodes[selectedNodeId];
     const currentNode = simulation.nodes[selectedNodeId]; // instead of from `nodes[]`
+    const packetData = simulation.simulateNodeStep(currentNode);  // simulate once per update tick
 
     const ssthreshValue = currentNode.ssthresh || 64;
     setSsthreshData(prev => [...prev, { x: simulationTime, y: ssthreshValue }]);
+
+   
+
     const metrics = simulation.calculateAverageMetrics();
 
+   
+
     setNodes([...nodes]); // force React to notice node updates
+
+   
+    
 
 
     setThroughput(prevThroughput => [
@@ -72,6 +88,10 @@ function App() {
       { x: simulationTime, y: currentNode.cwnd }
     ]);
 
+    if (packetData && packetData.utility !== undefined) {
+      setUtilityData(prev => [...prev, { x: simulationTime, y: packetData.utility }]);
+    }
+
     logger.addLog({
       algorithm: 'TCP',
       packetLoss: metrics.packetLoss,
@@ -85,7 +105,7 @@ function App() {
     if (isAutoSimulationRunning && simulation) {
       timer = setInterval(() => {
         setSimulationTime(prevTime => prevTime + 1);
-        simulation.simulateStep();
+       simulation.simulateStep();
         updateNetworkMetrics();
       }, 1000);
     }
@@ -131,6 +151,12 @@ function App() {
       newSimulation.setAlgorithm('TCP Reno');
       const reno = new TcpReno(newSimulation.packetLossRate);
       newSimulation.simulateNodeStep = node => reno.simulateNodeStep(node);
+    }
+// Added TCP PCC Simulation
+    if (algorithm === 'tcp_pcc') {
+      newSimulation.setAlgorithm('TCP PCC');
+      const pcc = new TcpPcc(newSimulation.packetLossRate);
+      newSimulation.simulateNodeStep = node => pcc.simulateNodeStep(node);
     }
     setSimulation(newSimulation);
   };
@@ -236,6 +262,13 @@ function App() {
       // Capture packet statistics for display
       setPacketsSent(packetData.packetsSent);
       setPacketsLost(packetData.packetsLost);
+      if (packetData.utility !== undefined) {
+        setUtilityData(prevUtility => [
+          ...prevUtility,
+          { x: simulationTime, y: packetData.utility }
+        ]);
+      }
+      
       setError('');
     }
   };
@@ -400,6 +433,7 @@ function App() {
                 <option value="default">Default</option>
                 <option value="fast_congestion_control">Fast Congestion Control (Retransmit + Recovery)</option>
                 <option value="tcp_reno">TCP Reno</option>
+                <option value="tcp_pcc">TCP PCC</option>
               </select>
             </div>
 
@@ -465,6 +499,24 @@ function App() {
                <TcpRenoDemoDiagram />
                </div>
             )}
+
+           {algorithm === 'tcp_pcc' && (
+              <div className="section">
+              <h3>TCP PCC cwnd Chart</h3>
+              <TcpPccCwndChart
+                congestionWindow={congestionWindow}
+                utilityData={utilityData}
+              />
+            </div>
+           )}
+
+          {algorithm === 'tcp_pcc' && (
+            <div className="section">
+            <h3>TCP PCC Visual Demo</h3>
+           <TcpPccDemoDiagram />
+           </div>
+          )}
+
 
             <div className="button-group">
               <button onClick={resetSimulation} className="reset">
