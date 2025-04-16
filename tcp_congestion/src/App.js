@@ -14,9 +14,9 @@ import TcpPccDemoDiagram from './TcpPccDemoDiagram';
 import TcpBbr from './TcpBbr';
 import TcpBbrCwndChart from './TcpBbrCwndChart';
 import TcpBbrDemoDiagram from './TcpBbrDemoDiagram';
-
-
-
+import TcpCubic from './TcpCubic';
+import TcpCubicCwndChart from './TcpCubicCwndChart';
+import TcpCubicDemoDiagram from './TcpCubicDemoDiagram';
 
 
 
@@ -179,6 +179,13 @@ function App() {
       const bbr = new TcpBbr(newSimulation.packetLossRate);
       newSimulation.simulateNodeStep = node => bbr.simulateNodeStep(node);
     }
+// Added TCP Cubic Simulation
+  if (algorithm === 'tcp_cubic') {
+    newSimulation.setAlgorithm('TCP Cubic');
+    const cubic = new TcpCubic(newSimulation.packetLossRate);
+    newSimulation.simulateNodeStep = node => cubic.simulateNodeStep(node);
+  }
+
 
 
     setSimulation(newSimulation);
@@ -214,58 +221,58 @@ function App() {
     }
   };
 
-  // const handleChangeLostPkt = (event) => {
-  //   setLost_pkt(parseInt(event.target.value));
-  // };
+//   const handleChangeLostPkt = (event) => {
+//     setLost_pkt(parseInt(event.target.value));
+//   };
 
-  // const handleLost = () => {
-  //   const sourceNode = nodes.find(node => node.id === selectedNodeId);
-  //   if (sourceNode.lost.indexOf(lost_pkt) === -1 && sourceNode.sent.indexOf(lost_pkt) !== -1) {
-  //     const updatedLost = [...sourceNode.lost, lost_pkt];
-  //     setNodes(nodes.map(node =>
-  //       node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
-  //     ));
-  //     updatePacketLoss(updatedLost.length, sourceNode.sent.length);
-  //     setError('');
-  //   } else {
-  //     setError('Invalid packet number. Please check the packet exists and is not already marked as lost.');
-  //   }
-  // };
+//   const handleLost = () => {
+//     const sourceNode = nodes.find(node => node.id === selectedNodeId);
+//     if (sourceNode.lost.indexOf(lost_pkt) === -1 && sourceNode.sent.indexOf(lost_pkt) !== -1) {
+//       const updatedLost = [...sourceNode.lost, lost_pkt];
+//       setNodes(nodes.map(node =>
+//         node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
+//       ));
+//       updatePacketLoss(updatedLost.length, sourceNode.sent.length);
+//       setError('');
+//     } else {
+//       setError('Invalid packet number. Please check the packet exists and is not already marked as lost.');
+//     }
+//   };
 
-  // New function to simulate packet loss based on percentage
-  // const simulatePacketLoss = (percentage) => {
-  //   const sourceNode = nodes[selectedNodeId];
-  //   const totalPackets = sourceNode.sent.length;
-  //   const packetsToLose = Math.floor((percentage / 100) * totalPackets);
-  //   const randomLostPackets = [];
-  //   while (randomLostPackets.length < packetsToLose) {
-  //     const randomIndex = Math.floor(Math.random() * totalPackets);
-  //     const packet = sourceNode.sent[randomIndex];
-  //     if (!randomLostPackets.includes(packet)) {
-  //       randomLostPackets.push(packet);
-  //     }
-  //   }
-  //   const updatedLost = [...sourceNode.lost, ...randomLostPackets];
-  //   setNodes(nodes.map(node =>
-  //     node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
-  //   ));
-  //   updatePacketLoss(updatedLost.length, sourceNode.sent.length);
-  // };
+//  // New function to simulate packet loss based on percentage
+//   const simulatePacketLoss = (percentage) => {
+//     const sourceNode = nodes[selectedNodeId];
+//     const totalPackets = sourceNode.sent.length;
+//     const packetsToLose = Math.floor((percentage / 100) * totalPackets);
+//     const randomLostPackets = [];
+//     while (randomLostPackets.length < packetsToLose) {
+//       const randomIndex = Math.floor(Math.random() * totalPackets);
+//       const packet = sourceNode.sent[randomIndex];
+//       if (!randomLostPackets.includes(packet)) {
+//         randomLostPackets.push(packet);
+//       }
+//     }
+//     const updatedLost = [...sourceNode.lost, ...randomLostPackets];
+//     setNodes(nodes.map(node =>
+//       node.id === selectedNodeId ? { ...node, lost: updatedLost } : node
+//     ));
+//     updatePacketLoss(updatedLost.length, sourceNode.sent.length);
+//   };
 
-  // const updatePacketLoss = (lostPackets, totalPackets) => {
-  //   const lossRate = (lostPackets / totalPackets) * 100 || 0;
-  //   setPacketLoss(prevPacketLoss => [
-  //     ...prevPacketLoss,
-  //     { x: simulationTime, y: lossRate }
-  //   ]);
+//   const updatePacketLoss = (lostPackets, totalPackets) => {
+//     const lossRate = (lostPackets / totalPackets) * 100 || 0;
+//     setPacketLoss(prevPacketLoss => [
+//       ...prevPacketLoss,
+//       { x: simulationTime, y: lossRate }
+//     ]);
 
-  //   logger.addLog({
-  //     algorithm: 'TCP',
-  //     packetLoss: lossRate,
-  //     averageLatency: 0,
-  //     throughput: 0
-  //   });
-  // };
+//     logger.addLog({
+//       algorithm: 'TCP',
+//       packetLoss: lossRate,
+//       averageLatency: 0,
+//       throughput: 0
+//     });
+//   };
 
   const isConnected = (from, to) => {
     return connections.some(conn => (conn[0] === from && conn[1] === to) || (conn[1] === from && conn[0] === to));
@@ -458,6 +465,7 @@ function App() {
                 <option value="tcp_reno">TCP Reno</option>
                 <option value="tcp_pcc">TCP PCC</option>
                 <option value="tcp_bbr">TCP BBR</option>
+                <option value="tcp_cubic">TCP Cubic</option>
               </select>
             </div>
 
@@ -559,9 +567,19 @@ function App() {
             </div>
           )}
 
+          {algorithm === 'tcp_cubic' && (
+            <div className="section">
+              <h3>TCP Cubic cwnd Chart</h3>
+              <TcpCubicCwndChart congestionWindow={congestionWindow} />
+            </div>
+          )}
 
-
-
+          {algorithm === 'tcp_cubic' && (
+            <div className="section">
+              <h3>TCP Cubic Visual Demo</h3>
+              <TcpCubicDemoDiagram />
+            </div>
+          )}
 
             <div className="button-group">
               <button onClick={resetSimulation} className="reset">
