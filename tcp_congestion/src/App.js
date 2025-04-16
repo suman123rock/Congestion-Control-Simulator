@@ -11,6 +11,12 @@ import TcpRenoCwndChart from './TcpRenoCwndChart';
 import TcpPcc from './TcpPcc';
 import TcpPccCwndChart from './TcpPccCwndChart';
 import TcpPccDemoDiagram from './TcpPccDemoDiagram';
+import TcpBbr from './TcpBbr';
+import TcpBbrCwndChart from './TcpBbrCwndChart';
+import TcpBbrDemoDiagram from './TcpBbrDemoDiagram';
+
+
+
 
 
 
@@ -34,6 +40,9 @@ function App() {
   const [debugInfo, setDebugInfo] = useState({});
   const [ssthreshData, setSsthreshData] = useState([]);
   const [utilityData, setUtilityData] = useState([]);
+  const [btlBandwidthData, setBtlBandwidthData] = useState([]);
+  const [minRttData, setMinRttData] = useState([]);
+
 
 
   
@@ -91,6 +100,12 @@ function App() {
     if (packetData && packetData.utility !== undefined) {
       setUtilityData(prev => [...prev, { x: simulationTime, y: packetData.utility }]);
     }
+
+    if (packetData.bandwidthEstimate && packetData.minRtt) {
+      setBtlBandwidthData(prev => [...prev, { x: simulationTime, y: parseFloat(packetData.bandwidthEstimate) }]);
+      setMinRttData(prev => [...prev, { x: simulationTime, y: parseFloat(packetData.minRtt) }]);
+    }
+    
 
     logger.addLog({
       algorithm: 'TCP',
@@ -158,6 +173,14 @@ function App() {
       const pcc = new TcpPcc(newSimulation.packetLossRate);
       newSimulation.simulateNodeStep = node => pcc.simulateNodeStep(node);
     }
+// Added TCP BBR Simulation
+    if (algorithm === 'tcp_bbr') {
+      newSimulation.setAlgorithm('TCP BBR');
+      const bbr = new TcpBbr(newSimulation.packetLossRate);
+      newSimulation.simulateNodeStep = node => bbr.simulateNodeStep(node);
+    }
+
+
     setSimulation(newSimulation);
   };
 
@@ -434,6 +457,7 @@ function App() {
                 <option value="fast_congestion_control">Fast Congestion Control (Retransmit + Recovery)</option>
                 <option value="tcp_reno">TCP Reno</option>
                 <option value="tcp_pcc">TCP PCC</option>
+                <option value="tcp_bbr">TCP BBR</option>
               </select>
             </div>
 
@@ -516,6 +540,27 @@ function App() {
            <TcpPccDemoDiagram />
            </div>
           )}
+
+          {algorithm === 'tcp_bbr' && (
+            <div className="section">
+              <h3>TCP BBR Chart</h3>
+              <TcpBbrCwndChart
+                congestionWindow={congestionWindow}
+                btlBandwidthData={btlBandwidthData}
+                minRttData={minRttData}
+              />
+            </div>
+          )}
+
+          {algorithm === 'tcp_bbr' && (
+            <div className="section">
+              <h3>TCP BBR Visual Demo</h3>
+              <TcpBbrDemoDiagram />
+            </div>
+          )}
+
+
+
 
 
             <div className="button-group">
